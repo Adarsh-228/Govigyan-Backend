@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str | None = None
 
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+    AUTH_COOKIE_NAME: str = "access_token"
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 

@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from supabase import AuthApiError
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.core.supabase_client import supabase_anon
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -14,7 +15,7 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/login")
-async def login(payload: LoginRequest):
+async def login(payload: LoginRequest, response: Response):
     try:
         auth_response = supabase_anon.auth.sign_in_with_password(
             {
@@ -32,6 +33,16 @@ async def login(payload: LoginRequest):
     if not session or not user:
         raise HTTPException(status_code=401, detail="Invalid login response")
 
+    response.set_cookie(
+        key=settings.AUTH_COOKIE_NAME,
+        value=session.access_token,
+        httponly=True,
+        secure=settings.APP_ENV == "production",
+        samesite="lax",
+        max_age=int(session.expires_in or 3600),
+        path="/",
+    )
+
     return {
         "access_token": session.access_token,
         "refresh_token": session.refresh_token,
@@ -42,6 +53,15 @@ async def login(payload: LoginRequest):
             "email": user.email,
         },
     }
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie(
+        key=settings.AUTH_COOKIE_NAME,
+        path="/",
+    )
+    return {"message": "Logged out successfully"}
 
 
 @router.get("/me")
